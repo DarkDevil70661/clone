@@ -48,7 +48,6 @@ def clean_invisible_chars(text):
 def is_nsfw_content(text):
     if not text:
         return False
-    # ✅ FIX: Decode URL properly so encoded bad words don't pass
     text = clean_invisible_chars(urllib.parse.unquote(str(text)).lower())
     for word in BANNED_WORDS:
         if re.search(r'\b' + re.escape(word) + r'\b', text):
@@ -58,7 +57,6 @@ def is_nsfw_content(text):
 def is_malicious_link(text):
     if not text:
         return False
-    # ✅ FIX: Decode URL properly so %7BIFS%7D is caught as {IFS}
     text = clean_invisible_chars(urllib.parse.unquote(str(text)).lower())
     if re.search(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', text): return True
     bad_extensions = ["webhook", "ngrok", "localhost", "0.0.0.0", ".sh", ".txt", "payload", ".exe", ".bat", ".vbs", ".cmd", ".py", ".php"]
@@ -69,7 +67,6 @@ def is_malicious_link(text):
 
 def bouncer_check(_, __, message: Message):
     if not message.text: return True
-    # ✅ FIX: Protect against URL-encoded attacks
     text = clean_invisible_chars(urllib.parse.unquote(message.text).lower())
     dangerous_symbols = ["ifs", "/etc/passwd", ".env", "webhook.site", "rm -rf", "wget ", "curl ", "chmod ", "bash -c", "eval("]
     if any(sym in text for sym in dangerous_symbols): return False 
@@ -94,24 +91,20 @@ async def send_security_log(message: Message, breach_type: str, payload: str):
     except Exception:
         pass
 
-# ✅ Helper function for Random Image
 def get_random_img(img_list):
     if img_list:
         if isinstance(img_list, list):
             return random.choice(img_list)
         return img_list
-    return "https://telegra.ph/file/2e3d368e77c449c287430.jpg" # Fallback
+    return "https://telegra.ph/file/2e3d368e77c449c287430.jpg"
 
-# 🛠️ EXACT MATCH URL CLEANER (Fixes Wrong Song/Playlist Play Issue)
 def clean_youtube_url(url):
     if not isinstance(url, str): return url, None, "unknown"
     
-    # Check for playlist first
     list_match = re.search(r"list=([a-zA-Z0-9_-]+)", url)
     if list_match and ("youtube.com" in url or "youtu.be" in url):
         return f"https://www.youtube.com/playlist?list={list_match.group(1)}", list_match.group(1), "playlist"
         
-    # Check for video
     yt_match = re.search(r"(?:v=|youtu\.be/|shorts/|live/|embed/|watch\?v=|music\.youtube\.com/watch\?v=|/v/)([a-zA-Z0-9_-]{11})", url)
     if yt_match:
         return f"https://www.youtube.com/watch?v={yt_match.group(1)}", yt_match.group(1), "video"
@@ -178,7 +171,6 @@ async def play_commnd(
                 "dur": dur,
             }
             
-            # 🛑 NSFW BLOCK
             if is_nsfw_content(details.get("title", "")):
                 await send_security_log(message, "ɴsғᴡ ᴠɪᴏʟᴀᴛɪᴏɴ (Telegram Audio)", details.get("title", ""))
                 return await mystic.edit_text("**🚫 sᴇᴄᴜʀɪᴛʏ ᴀʟᴇʀᴛ: ᴀᴅᴜʟᴛ ᴄᴏɴᴛᴇɴᴛ ɪs sᴛʀɪᴄᴛʟʏ ᴘʀᴏʜɪʙɪᴛᴇᴅ!**")
@@ -231,7 +223,6 @@ async def play_commnd(
                 "dur": dur,
             }
             
-            # 🛑 NSFW BLOCK
             if is_nsfw_content(details.get("title", "")):
                 await send_security_log(message, "ɴsғᴡ ᴠɪᴏʟᴀᴛɪᴏɴ (Telegram Video)", details.get("title", ""))
                 return await mystic.edit_text("**🚫 sᴇᴄᴜʀɪᴛʏ ᴀʟᴇʀᴛ: ᴀᴅᴜʟᴛ ᴄᴏɴᴛᴇɴᴛ ɪs sᴛʀɪᴄᴛʟʏ ᴘʀᴏʜɪʙɪᴛᴇᴅ!**")
@@ -260,7 +251,6 @@ async def play_commnd(
             return await mystic.delete()
         return
     elif url:
-        # 🛡️ SECURITY PATCH: Block Local Files & Validate Domains
         if not url.startswith(("http://", "https://")):
             return await mystic.edit_text("❌ **Security Error:** Local files are not allowed.")
             
@@ -272,7 +262,6 @@ async def play_commnd(
             await send_security_log(message, "ɴsғᴡ ᴠɪᴏʟᴀᴛɪᴏɴ", url)
             return await mystic.edit_text("**🚫 sᴇᴄᴜʀɪᴛʏ ᴀʟᴇʀᴛ: ᴀᴅᴜʟᴛ ᴄᴏɴᴛᴇɴᴛ ɪs sᴛʀɪᴄᴛʟʏ ᴘʀᴏʜɪʙɪᴛᴇᴅ!**")
 
-        # Domain Whitelist
         allowed_domains = [
             "youtube.com", "youtu.be",
             "spotify.com", "open.spotify.com",
@@ -287,7 +276,6 @@ async def play_commnd(
              )
 
         if await YouTube.exists(url):
-            # ✅ URL CLEANER APPLIED HERE (Fixes Wrong Song Issue)
             clean_url, ext_id, y_type = clean_youtube_url(url)
             
             if y_type == "playlist":
@@ -322,7 +310,6 @@ async def play_commnd(
                 img = details["thumb"]
                 cap = _["play_11"].format(details["title"], details["duration_min"])
             else:
-                # Fallback for weird links
                 try:
                     details, track_id = await YouTube.track(url)
                 except Exception as e:
@@ -505,12 +492,10 @@ async def play_commnd(
         if "-v" in query:
             query = query.replace("-v", "")
             
-        # ✅ URL CLEANER FOR TEXT QUERIES (Fixes when bad links bypass the URL check)
         clean_url, ext_id, y_type = clean_youtube_url(query)
         if y_type == "video":
             query = clean_url
             
-        # 🛑 NSFW BLOCK
         if is_nsfw_content(query):
             await send_security_log(message, "ɴsғᴡ ᴠɪᴏʟᴀᴛɪᴏɴ", query)
             return await mystic.edit_text("**🚫 sᴇᴄᴜʀɪᴛʏ ᴀʟᴇʀᴛ: ᴀᴅᴜʟᴛ ᴄᴏɴᴛᴇɴᴛ ɪs sᴛʀɪᴄᴛʟʏ ᴘʀᴏʜɪʙɪᴛᴇᴅ!**")
@@ -520,7 +505,6 @@ async def play_commnd(
         except:
             return await mystic.edit_text(_["play_3"])
             
-        # 🛑 Final check after fetching data
         if is_nsfw_content(details.get("title", "")):
             await send_security_log(message, "ɴsғᴡ ᴠɪᴏʟᴀᴛɪᴏɴ", details.get("title", ""))
             return await mystic.edit_text("**🚫 sᴇᴄᴜʀɪᴛʏ ᴀʟᴇʀᴛ: ᴀᴅᴜʟᴛ ᴄᴏɴᴛᴇɴᴛ ɪs sᴛʀɪᴄᴛʟʏ ᴘʀᴏʜɪʙɪᴛᴇᴅ!**")
@@ -714,7 +698,7 @@ async def play_music(client, CallbackQuery, _):
 async def SHUKLAmous_check(client, CallbackQuery):
     try:
         await CallbackQuery.answer(
-            "» ʀᴇᴠᴇʀᴛ ʙᴀᴄᴋ ᴛᴏ ᴜsᴇʀ ᴀᴄᴄᴏᴜɴᴛ :\n\nᴏᴘᴇɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs.\n-> ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs\n-> ᴄʟɪᴄᴋ ᴏɴ ʏᴏᴜʀ ɴᴀᴍᴇ\n-> ᴜɴᴄʜᴇᴄᴋ ᴀɴᴏɴʏᴍᴏᴜs ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs.",
+            "» ʀᴇᴠᴇʀᴛ ʙᴀᴄᴋ ᴛᴏ ᴜsᴇʀ ᴀᴄᴄᴏᴜɴᴛ :\n\nᴏᴘᴇɴ ʏᴏᴜʀ gʀᴏᴜᴘ sᴇᴛᴛɪɴɢs.\n-> ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs\n-> ᴄʟɪᴄᴋ ᴏɴ ʏᴏᴜʀ ɴᴀᴍᴇ\n-> ᴜɴᴄʜᴇᴄᴋ ᴀɴᴏɴʏᴍᴏᴜs ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs.",
             show_alert=True,
         )
     except:
@@ -851,7 +835,6 @@ async def slider_queries(client, CallbackQuery, _):
 
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
         
-        # ✅ FIX: Removed has_spoiler parameter to prevent older Pyrogram TypeError
         return await CallbackQuery.edit_message_media(
             media=InputMediaPhoto(media=thumbnail, caption=_["play_10"].format(title.title(), duration_min)),
             reply_markup=InlineKeyboardMarkup(buttons)
@@ -873,7 +856,6 @@ async def slider_queries(client, CallbackQuery, _):
 
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
         
-        # ✅ FIX: Removed has_spoiler parameter to prevent older Pyrogram TypeError
         return await CallbackQuery.edit_message_media(
             media=InputMediaPhoto(media=thumbnail, caption=_["play_10"].format(title.title(), duration_min)),
             reply_markup=InlineKeyboardMarkup(buttons)
